@@ -1,0 +1,5 @@
+# A practice Sinatra App
+
+## Notes on testing
+
+Sinatra applications can take advantage of the `Rack::Test` library. See `test/cms_test`. `ENV["RACK_ENV"] = "test"` is used by Sinatra and Rack to know if code is being tested. We need to require `rack/test` in to have access to `Rack::Test` helper methods; `rack-test` also needs to be added to the Gemfile. The `Rack::Test` methods expect a method called `app` to exist and return an instance of a Rack application so we define an `app` method which returns `Sinatra::Application`. In general a test involves making a request to the app and accessing the response using the `last_response` method which returns an instance of `Rack::MockResponse` which has `status`, `body`, and `[]` methods for accessing the status, body, and headers of the response.
