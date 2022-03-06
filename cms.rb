@@ -2,6 +2,8 @@ require 'sinatra'
 require 'sinatra/reloader'
 require 'tilt/erubis'
 require 'redcarpet'
+require 'yaml'
+require 'bcrypt'
 
 configure do
   enable :sessions
@@ -44,6 +46,15 @@ def require_signed_in_user
   end
 end
 
+def load_users
+  path = if ENV["RACK_ENV"] == "test"
+    File.expand_path("../test", __FILE__)
+  else
+    File.expand_path('..', __FILE__)
+  end
+  YAML.load(File.read("#{path}/users.yml"))
+end
+
 get "/" do
   @username = session[:username]
   @filenames = Dir.entries(data_path).select { |f| f != '.' && f != '..' }
@@ -63,7 +74,10 @@ end
 post "/users/new" do
   @username = params[:username]
   password = params[:password]
-  if @username == "admin" && password == "secret"
+  valid_users = load_users
+  if valid_users.any? do |name, pass|
+    (name == @username && BCrypt::Password.new(pass) == password )
+  end
     session[:username] = @username
     session[:success] = "Welcome!"
     redirect "/"

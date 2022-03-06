@@ -72,7 +72,7 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "Invalid credentials."
   end
   
-  def test_successful_signin
+  def test_successful_signin_as_admin
     post "/users/new", username: "admin", password: "secret"
     assert_equal 302, last_response.status
     assert_equal "Welcome!", session[:success]
@@ -80,6 +80,10 @@ class AppTest < MiniTest::Test
     assert_equal 200, last_response.status
     assert_includes last_response.body, "Signed in as admin"
     assert_includes last_response.body, "Sign out"
+  end
+
+  def test_successful_signin_as_user
+    
   end
 
   # tests about accessing files
