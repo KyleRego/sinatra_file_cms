@@ -34,8 +34,32 @@ def load_file_content(path)
 end
 
 get "/" do
+  @username = session[:username]
   @filenames = Dir.entries(data_path).select { |f| f != '.' && f != '..' }
   erb :index, layout: :layout
+end
+
+get "/users/signin" do
+  erb :signin, layout: :layout
+end
+
+post "/users/signout" do
+  session.delete(:username)
+  session[:success] = "You have been signed out."
+  redirect "/"
+end
+
+post "/users/new" do
+  @username = params[:username]
+  password = params[:password]
+  if @username == "admin" && password == "secret"
+    session[:username] = @username
+    session[:success] = "Welcome!"
+    redirect "/"
+  else
+    session[:error] = "Invalid credentials."
+    erb :signin, layout: :layout
+  end
 end
 
 get "/new" do

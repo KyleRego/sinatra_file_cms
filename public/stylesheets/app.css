@@ -7,3 +7,7 @@ div.message {
     padding: 10px;
     background: #FFFF99;
 }
+
+.user-status {
+    font-style: italic;
+}

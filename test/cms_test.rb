@@ -28,16 +28,36 @@ class AppTest < MiniTest::Test
   end
 
   def test_index
-    create_document "about.md"
-    create_document "changes.txt"
-
     get "/"
 
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
-    assert_includes last_response.body, "about.md"
-    assert_includes last_response.body, "changes.txt"
+    assert_includes last_response.body, "Sign in"
+  end
 
+  def test_signin_view
+    get "/users/signin"
+    
+    assert_equal 200, last_response.status
+    assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
+    assert_includes last_response.body, "Username:"
+    assert_includes last_response.body, "Password:"
+  end
+
+  def test_unsuccessful_signin
+    post "/users/new", username: "kyle", password: "password"
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "kyle"
+    assert_includes last_response.body, "Invalid credentials."
+  end
+  
+  def test_successful_signin
+    post "/users/new", username: "admin", password: "secret"
+    assert_equal 302, last_response.status
+    get last_response["Location"]
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, "Signed in as admin"
+    assert_includes last_response.body, "Sign out"
   end
 
   def test_history
@@ -113,6 +133,7 @@ class AppTest < MiniTest::Test
 
   def test_deleting_a_file
     create_document "hello_world.txt"
+    post "/users/new", username: "admin", password: "secret"
     get "/"
     assert_includes last_response.body, "hello_world.txt"
     post "/hello_world.txt/delete"
