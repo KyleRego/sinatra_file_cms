@@ -108,6 +108,8 @@ post "/new" do
 end
 
 get "/:filename" do
+  require_signed_in_user
+  
   filename = params[:filename]
   file_path = File.join(data_path, filename)
 
