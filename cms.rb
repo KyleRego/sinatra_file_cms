@@ -33,6 +33,17 @@ def load_file_content(path)
   end
 end
 
+def user_logged_in?
+  session[:username] == 'admin'
+end
+
+def require_signed_in_user
+  unless user_logged_in?
+    session[:error] = "You must be signed in to do that."
+    redirect "/"
+  end
+end
+
 get "/" do
   @username = session[:username]
   @filenames = Dir.entries(data_path).select { |f| f != '.' && f != '..' }
@@ -63,10 +74,13 @@ post "/users/new" do
 end
 
 get "/new" do
+  require_signed_in_user
   erb :new, layout: :layout
 end
 
 post "/new" do
+  require_signed_in_user
+  
   new_document_name = params[:new_document]
   if new_document_name != ""
     new_document = File.join(data_path, new_document_name)
@@ -92,6 +106,8 @@ get "/:filename" do
 end
 
 post "/:filename/delete" do
+  require_signed_in_user
+
   filename = params[:filename]
   file_path = File.join(data_path, filename)
 
@@ -103,12 +119,16 @@ post "/:filename/delete" do
 end
 
 get "/:filename/edit" do
+  require_signed_in_user
+
   @filename = params[:filename]
   @contents = File.read(File.join(data_path, @filename))
   erb :edit, layout: :layout
 end
 
 post "/:filename/edit" do
+  require_signed_in_user
+
   new_contents = params[:new_contents]
   filename = params[:filename]
   file_path = File.join(data_path, filename)

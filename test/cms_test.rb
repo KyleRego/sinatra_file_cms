@@ -18,7 +18,11 @@ class AppTest < MiniTest::Test
       file.write content
     end
   end
-  
+
+  def admin_session
+    { "rack.session" => { username: "admin" } }
+  end
+
   def session
     last_request.env["rack.session"]
   end
@@ -31,6 +35,8 @@ class AppTest < MiniTest::Test
     FileUtils.rm_rf(data_path)
   end
 
+  # tests about index view
+
   def test_index_not_logged_in
     get "/"
     assert_equal 200, last_response.status
@@ -41,13 +47,15 @@ class AppTest < MiniTest::Test
   def test_index_logged_in
     create_document 'about.md'
     create_document 'history.txt'
-    get "/", {}, {"rack.session" => { username: "admin" } }
+    get "/", {}, admin_session
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_includes last_response.body, "about.md"
     assert_includes last_response.body, "history.txt"
     assert_includes last_response.body, "Signed in as admin"
   end
+
+  # tests about signing in
 
   def test_signin
     get "/users/signin"
@@ -74,7 +82,10 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "Sign out"
   end
 
-  def test_history
+  # tests about accessing files
+
+  def test_viewing_a_txt_file_while_logged_in
+    get "/", {}, admin_session
     create_document "history.txt", "the content of history.txt is this"
     get "/history.txt"
     assert_equal 200, last_response.status
@@ -82,7 +93,8 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "history.txt"
   end
 
-  def test_trying_to_access_a_nonexistent_file
+  def test_trying_to_access_a_nonexistent_file_while_logged_in
+    get "/", {}, admin_session
     get "/a.txt"
     assert_equal 302, last_response.status
     assert_equal "", last_response.body
@@ -94,7 +106,8 @@ class AppTest < MiniTest::Test
     refute_includes last_response.body, "a.txt does not exist"
   end
 
-  def test_rendering_markdown_file
+  def test_viewing_a_markdown_file_while_logged_in
+    get "/", {}, admin_session
     create_document "about.md", "# test markdown file"
     get "/about.md"
     assert_equal 200, last_response.status
@@ -102,9 +115,11 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "<h1>test markdown file</h1>"
   end
 
-  def test_editing_file
-    create_document "history.txt"
+  # tests about editing a file
 
+  def test_editing_file_while_logged_in
+    create_document "history.txt"
+    get "/", {}, admin_session
     get "/history.txt/edit"
     assert_equal 200, last_response.status
     assert_includes last_response.body, "<textarea"
@@ -123,7 +138,24 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "new contents"
   end
 
-  def test_adding_file
+  def test_attempting_to_access_editing_file_view_while_not_logged_in
+    create_document "history.txt"
+    get "/history.txt/edit"
+    assert_equal "You must be signed in to do that.", session[:error]
+    assert_equal 302, last_response.status
+  end
+
+  def test_attempting_edit_file_by_post_while_not_logged_in
+    create_document "history.txt"
+    post "/history.txt/edit", new_contents: "new history.txt contents"
+    assert_equal "You must be signed in to do that.", session[:error]
+    assert_equal 302, last_response.status
+  end
+
+  # tests about adding a file
+
+  def test_adding_file_while_logged_in
+    get "/", {}, admin_session
     get "/new"
     assert_equal 200, last_response.status
     assert_includes last_response.body, "Add a new document:"
@@ -136,7 +168,8 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "hello_world.txt"
   end
 
-  def test_adding_file_with_no_name_error
+  def test_adding_file_with_no_name_error_while_logged_in
+    get "/", {}, admin_session
     post "/new", new_document: ""
 
     get last_response["Location"]
@@ -146,9 +179,23 @@ class AppTest < MiniTest::Test
     refute_includes last_response.body, "A name is required."
   end
 
-  def test_deleting_a_file
+  def test_visiting_add_file_view_while_not_logged_in
+    get "/new"
+    assert_equal "You must be signed in to do that.", session[:error]
+    assert_equal 302, last_response.status
+  end
+
+  def test_attempting_to_add_file_by_post
+    post "/new", new_document: "hello_world.txt"
+    assert_equal "You must be signed in to do that.", session[:error]
+    assert_equal 302, last_response.status
+  end
+
+  # tests about deleting a file
+
+  def test_deleting_a_file_while_logged_in
     create_document "hello_world.txt"
-    get "/", {}, { "rack.session" => { username: "admin", password: "secret" } }
+    get "/", {}, admin_session
     assert_includes last_response.body, "hello_world.txt"
     post "/hello_world.txt/delete"
     assert_equal 302, last_response.status
@@ -156,5 +203,12 @@ class AppTest < MiniTest::Test
     assert_includes last_response.body, "hello_world.txt was deleted."
     get "/"
     refute_includes last_response.body, "hello_world.txt"
+  end
+
+  def test_trying_to_delete_a_file_while_not_logged_in
+    create_document "hello_world.txt"
+    post "/hello_world.txt/delete"
+    assert_equal "You must be signed in to do that.", session[:error]
+    assert_equal 302, last_response.status
   end
 end
