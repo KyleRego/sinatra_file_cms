@@ -6,17 +6,21 @@ require 'fileutils'
 
 require_relative "../cms"
 
-def create_document(name, content = "")
-  File.open(File.join(data_path, name), 'w') do |file|
-    file.write content
-  end
-end
-
 class AppTest < MiniTest::Test
   include Rack::Test::Methods
 
   def app
     Sinatra::Application
+  end
+
+  def create_document(name, content = "")
+    File.open(File.join(data_path, name), 'w') do |file|
+      file.write content
+    end
+  end
+  
+  def session
+    last_request.env["rack.session"]
   end
 
   def setup
@@ -27,17 +31,26 @@ class AppTest < MiniTest::Test
     FileUtils.rm_rf(data_path)
   end
 
-  def test_index
+  def test_index_not_logged_in
     get "/"
-
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_includes last_response.body, "Sign in"
   end
 
-  def test_signin_view
+  def test_index_logged_in
+    create_document 'about.md'
+    create_document 'history.txt'
+    get "/", {}, {"rack.session" => { username: "admin" } }
+    assert_equal 200, last_response.status
+    assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
+    assert_includes last_response.body, "about.md"
+    assert_includes last_response.body, "history.txt"
+    assert_includes last_response.body, "Signed in as admin"
+  end
+
+  def test_signin
     get "/users/signin"
-    
     assert_equal 200, last_response.status
     assert_equal "text/html;charset=utf-8", last_response["Content-Type"]
     assert_includes last_response.body, "Username:"
@@ -54,6 +67,7 @@ class AppTest < MiniTest::Test
   def test_successful_signin
     post "/users/new", username: "admin", password: "secret"
     assert_equal 302, last_response.status
+    assert_equal "Welcome!", session[:success]
     get last_response["Location"]
     assert_equal 200, last_response.status
     assert_includes last_response.body, "Signed in as admin"
@@ -72,6 +86,7 @@ class AppTest < MiniTest::Test
     get "/a.txt"
     assert_equal 302, last_response.status
     assert_equal "", last_response.body
+    assert_equal "a.txt does not exist.", session[:error]
     get last_response["Location"]
     assert_equal 200, last_response.status
     assert_includes last_response.body, "a.txt does not exist"
@@ -133,8 +148,7 @@ class AppTest < MiniTest::Test
 
   def test_deleting_a_file
     create_document "hello_world.txt"
-    post "/users/new", username: "admin", password: "secret"
-    get "/"
+    get "/", {}, { "rack.session" => { username: "admin", password: "secret" } }
     assert_includes last_response.body, "hello_world.txt"
     post "/hello_world.txt/delete"
     assert_equal 302, last_response.status
